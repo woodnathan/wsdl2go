@@ -264,31 +264,48 @@ func (ge *goEncoder) importRoot(d *wsdl.Definitions) error {
 }
 
 func (ge *goEncoder) importSchema(d *wsdl.Definitions) error {
+	locs := []string{}
+	locMap := make(map[string]struct{})
+
 	for _, imp := range d.Schema.Imports {
-		if imp.Location == "" {
+		if _, exists := locMap[ imp.Location ]; !exists {
+			locs = append(locs, imp.Location)
+			locMap[imp.Location] = struct{}{}
+		}
+	}
+
+	for _, inc := range d.Schema.Includes {
+		if _, exists := locMap[ inc.Location ]; !exists {
+			locs = append(locs, inc.Location)
+			locMap[inc.Location] = struct{}{}
+		}
+	}
+
+	for idx := 0; idx < len(locs); idx++ {
+		loc := locs[idx]
+
+		if loc == "" {
 			continue
 		}
 		schema := &wsdl.Schema{}
-		err := ge.importRemote(imp.Location, schema)
+		err := ge.importRemote(loc, schema)
 		if err != nil {
 			return err
 		}
 		ge.unionSchemasData(d, schema)
+
+		// Queue imports and includes
 		for _, item := range schema.Imports {
-			schema = &wsdl.Schema{}
-			err := ge.importRemote(item.Location, schema)
-			if err != nil {
-				return err
+			if _, exists := locMap[ item.Location ]; !exists {
+				locs = append(locs, item.Location)
+				locMap[item.Location] = struct{}{}
 			}
-			ge.unionSchemasData(d, schema)
 		}
 		for _, item := range schema.Includes {
-			schema = &wsdl.Schema{}
-			err := ge.importRemote(item.Location, schema)
-			if err != nil {
-				return err
+			if _, exists := locMap[ item.Location ]; !exists {
+				locs = append(locs, item.Location)
+				locMap[item.Location] = struct{}{}
 			}
-			ge.unionSchemasData(d, schema)
 		}
 	}
 	return nil
