@@ -291,6 +291,34 @@ func (ge *goEncoder) importSchema(d *wsdl.Definitions) error {
 			ge.unionSchemasData(d, schema)
 		}
 	}
+
+	for _, imp := range d.Schema.Includes {
+		if imp.Location == "" {
+			continue
+		}
+		schema := &wsdl.Schema{}
+		err := ge.importRemote(imp.Location, schema)
+		if err != nil {
+			return err
+		}
+		ge.unionSchemasData(d, schema)
+		for _, item := range schema.Imports {
+			schema = &wsdl.Schema{}
+			err := ge.importRemote(item.Location, schema)
+			if err != nil {
+				return err
+			}
+			ge.unionSchemasData(d, schema)
+		}
+		for _, item := range schema.Includes {
+			schema = &wsdl.Schema{}
+			err := ge.importRemote(item.Location, schema)
+			if err != nil {
+				return err
+			}
+			ge.unionSchemasData(d, schema)
+		}
+	}
 	return nil
 }
 
